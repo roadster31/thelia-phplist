@@ -1,5 +1,20 @@
 {
   "name": "cqfdev/php-list-module",
+  "description": "A Thelia 2 module to synchronize a phpList contact list of your choice with the newsletter subscriptions and unsubscriptions on your Thelia shop",
+  "keywords": [
+    "thelia",
+    "thelia-module",
+    "phplist",
+    "email",
+    "newsletter"
+  ],
+  "authors": [
+    {
+      "name": "Franck Allimant",
+      "email": "franck@cqfdev.fr",
+      "role": "Developer"
+    }
+  ],
   "license": "LGPL-3.0+",
   "type": "thelia-module",
   "require": {

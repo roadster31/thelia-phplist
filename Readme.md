@@ -1,6 +1,6 @@
 # PhpList interface
 
-This module keep a [phpList](https://www.phplist.org/) contact list of your choice synchronized whith the newsletter 
+This module synchronize a [phpList](https://www.phplist.org/) contact list of your choice whith the newsletter 
 subscriptions and unsubscriptions on your shop :
 
 - When a user subscribe to your newsletter on your shop, it is automatically added to the phpList contact list.
