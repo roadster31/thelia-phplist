@@ -1,0 +1,78 @@
+<div class="row">
+    <div class="col-md-12 general-block-decorator">
+        <div class="row">
+            <div class="col-md-12 title title-without-tabs">
+                {intl d='phplist.bo.default' l="PHP List interface Configuration"}
+            </div>
+        </div>
+        
+        <div class="form-container">
+            <div class="row">
+                <div class="col-md-12">
+                    {form name="phplist.configuration.form"}
+                        
+                        <form action="{url path="/admin/module/phplist/configure"}" method="post">
+                            {form_hidden_fields form=$form}
+                            
+                            {include file = "includes/inner-form-toolbar.html"
+                            hide_flags = true
+                            page_url   = "{url path='/admin/module/PhpList'}"
+                            close_url  = "{url path='/admin/modules'}"
+                            hide_save_and_close_button = true
+                            }
+                            
+                            {if $form_error}
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="alert alert-danger">{$form_error_message}</div>
+                                    </div>
+                                </div>
+                            {/if}
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {render_form_field form=$form field='rest_url' value=$rest_url}
+                                    {render_form_field form=$form field='api_login_name' value=$api_login_name}
+                                    {render_form_field form=$form field='api_password' value=$api_password}
+                                    {render_form_field form=$form field='api_secret' value=$api_secret}
+                                    {if $rest_url}
+                                        {render_form_field form=$form field='list_name' value=$list_name}
+                                        {render_form_field form=$form field='vrp_list_name' value=$vrp_list_name}
+                                    {/if}
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <p class="title title-without-tabs">
+                                        {intl d='phplist.bo.default' l="Prerequistites"}
+                                    </p>
+    
+                                    {intl d='phplist.bo.default' l='<p>For this module to work, the <a href="https://github.com/phpList/phplist-plugin-restapi" target="_blank">RESTAPI plugin</a> shoud be installed and configured on your PHP List instance.</p>
+                                    <p>To configure this module, please enter the required information, and click the "Save" button.</p>
+                                    <p>Once the proper crendentials have been entered, you\'ll have to choose the list that will be updated when a customer subscribe or unsubscribe to the newsletter.</p>'}
+    
+                                    <p>&nbsp;</p> {* please kill me *}
+                                    
+                                    <p class="title title-without-tabs">
+                                        {intl d='phplist.bo.default' l="phpList / Thelia synchronization"}
+                                    </p>
+    
+                                    {intl d='phplist.bo.default' l='To get instant synchronization between phpList and Thelia, be sure to use in the various phpList messages and templates:'}
+                                    <ul>
+                                        <li>{intl d='phplist.bo.default' l='<strong>%sub</strong> instead of [SUBSCRIBEURL]' sub={url path="/newsletter"}}</li>
+                                        <li>{intl d='phplist.bo.default' l='<strong>%unsub</strong> instead of [UNSUBSCRIBEURL]' unsub={url path="/newsletter-unsubscribe"}}</li>
+                                    </ul>
+                                    
+                                    <p>{intl d='phplist.bo.default' l='You can also configure an automatic synchronisation in your cron or webcron by invoking the following URL: %sync.' sync={url path='/admin/module/phplist/sync'}}</p>
+    
+                                    {if $rest_url}
+                                        <p><a href="{url path='/admin/module/phplist/sync'}" class="btn btn-primary">{intl d='phplist.bo.default' l="Synchronize now"}</a></p>
+                                    {/if}
+                                </div>
+                            </div>
+                        </form>
+                    {/form}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

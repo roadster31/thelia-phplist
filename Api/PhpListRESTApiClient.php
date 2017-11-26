@@ -1,0 +1,426 @@
+<?php
+/*************************************************************************************/
+/*      Copyright (c) Franck Allimant, CQFDev                                        */
+/*      email : thelia@cqfdev.fr                                                     */
+/*      web : http://www.cqfdev.fr                                                   */
+/*                                                                                   */
+/*      For the full copyright and license information, please view the LICENSE      */
+/*      file that was distributed with this source code.                             */
+/*************************************************************************************/
+
+namespace PhpList\Api;
+
+/**
+ * Created by Franck Allimant, CQFDev <franck@cqfdev.fr>
+ * Date: 18/07/2016 19:58
+ */
+
+ /**
+  *
+  * example PHP client class to access the phpList Rest API.
+  * License: MIT, https://opensource.org/licenses/MIT
+  *
+  * To use this class, you need the restapi plugin for phpList, https://resources.phplist.com/plugin/restapi
+  * Set the parameters below to match your system:
+  *
+  * - url                    : URL of your phpList installation
+  * - loginName              : admin login
+  * - password               : matching password
+  * - remoteProcessingSecret : (optional) the secret as defined in your phpList settings
+  *
+  * v 1.01 Nov 26, 2015 added optional secret on instantiation
+  * v 1 * Michiel Dethmers, phpList Ltd, November 18, 2015
+  *    Initial implementation of basic API calls
+  */
+class PhpListRESTApiClient
+{
+    /*
+     * URL of the API to connect to including the path
+     * generally something like.
+     *
+     * https://website.com/lists/admin/?pi=restapi&page=call
+     */
+    private $url;
+    /*
+     * login name for the phpList installation.
+     */
+    private $loginName;
+    
+    /*
+     * password to login.
+     */
+    private $password;
+    
+    /*
+     * the path where we can write our cookiejar.
+     */
+    public $tmpPath;
+    
+    /*
+     * optionally the remote processing secret of the phpList installation
+     * this will increase the security of the API calls.
+     */
+    private $remoteProcessingSecret;
+    
+    /**
+     * construct, provide the Credentials for the API location.
+     *
+     * @param string $url URL of the API
+     * @param string $loginName name to login with
+     * @param string $password password for the account
+     * @param string $secret
+     */
+    public function __construct($url, $loginName, $password, $secret = '')
+    {
+        $this->tmpPath = sys_get_temp_dir();
+            
+        $this->url = $url;
+        $this->loginName = $loginName;
+        $this->password = $password;
+        $this->remoteProcessingSecret = $secret;
+    }
+    
+    /**
+     * Make a call to the API using cURL.
+     *
+     * @param string $command The command to run
+     * @param array $post_params Array for parameters for the API call
+     * @param bool $decode json_decode the result (defaults to true)
+     *
+     * @return string result of the CURL execution
+     */
+    private function callApi($command, $post_params, $decode = true)
+    {
+        $post_params['cmd'] = $command;
+        
+        // optionally add the secret to a call, if provided
+        if (!empty($this->remoteProcessingSecret)) {
+            $post_params['secret'] = $this->remoteProcessingSecret;
+        }
+        $post_params = http_build_query($post_params);
+        $c = curl_init();
+        curl_setopt($c, CURLOPT_URL,            $this->url);
+        curl_setopt($c, CURLOPT_HEADER,         0);
+        curl_setopt($c, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($c, CURLOPT_POST,           1);
+        curl_setopt($c, CURLOPT_POSTFIELDS,     $post_params);
+        curl_setopt($c, CURLOPT_COOKIEFILE,     $this->tmpPath.'/phpList_RESTAPI_cookiejar.txt');
+        curl_setopt($c, CURLOPT_COOKIEJAR,      $this->tmpPath.'/phpList_RESTAPI_cookiejar.txt');
+        curl_setopt($c, CURLOPT_HTTPHEADER,     array('Connection: Keep-Alive', 'Keep-Alive: 60'));
+        
+        // Execute the call
+        $result = curl_exec($c);
+        
+        // Check if decoding of result is required
+        if ($decode === true) {
+            $result = json_decode($result);
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Use a real login to test login api call.
+     *
+     * @param none
+     *
+     * @return bool true if user exists and login successful
+     */
+    public function login()
+    {
+        // Set the username and pwd to login with
+        $post_params = array(
+            'login' => $this->loginName,
+            'password' => $this->password,
+        );
+        
+        // Execute the login with the credentials as params
+        $result = $this->callApi('login', $post_params);
+        return $result->status == 'success';
+    }
+    
+    /**
+     * Create a list.
+     *
+     * @param string $listName        Name of the list
+     * @param string $listDescription Description of the list
+     *
+     * @return int ListId of the list created
+     */
+    public function listAdd($listName, $listDescription)
+    {
+        // Create minimal params for api call
+        $post_params = array(
+            'name' => $listName,
+            'description' => $listDescription,
+            'listorder' => '0',
+            'active' => '1',
+        );
+        
+        // Execute the api call
+        $result = $this->callApi('listAdd', $post_params);
+        
+        // get the ID of the list we just created
+        $listId = $result->data->id;
+        
+        return $listId;
+    }
+    
+    /**
+     * Get all lists.
+     *
+     * @return array|false All lists
+     */
+    public function listsGet()
+    {
+        // Create minimal params for api call
+        $post_params = array(
+        );
+        
+        // Execute the api call
+        $result = $this->callApi('listsGet', $post_params);
+        
+        // Return all list as array
+        return $result !== null ? $result->data : false;
+    
+    }
+    
+    /**
+     * Find a subscriber by email address.
+     *
+     * @param string $emailAddress Email address to search
+     *
+     * @return int $subscriberID if found false if not found
+     */
+    public function subscriberFindByEmail($emailAddress)
+    {
+        $params = array(
+            'email' => $emailAddress,
+        );
+        $result = $this->callApi('subscriberGetByEmail', $params);
+        
+        if (!empty($result->data->id)) {
+            return $result->data->id;
+        } else {
+            return false;
+        }
+    }
+    
+    /**
+     * Add a subscriber.
+     *
+     * This is the main method to use to add a subscriber. It will add the subscriber as
+     * a non-confirmed subscriber in phpList and it will send the Request-for-confirmation
+     * email as set up in phpList.
+     *
+     * The lists parameter will set the lists the subscriber will be added to. This has
+     * to be comma-separated list-IDs, eg "1,2,3,4".
+     *
+     * @param string $emailAddress email address of the subscriber to add
+     * @param string $lists        comma-separated list of IDs of the lists to add the subscriber to
+     *
+     * @return int $subscriberId if added, or false if failed
+     */
+    public function subscribe($emailAddress, $lists)
+    {
+        // Set the user details as parameters
+        $post_params = array(
+            'email' => $emailAddress,
+            'foreignkey' => '',
+            'htmlemail' => 1,
+            'subscribepage' => 0,
+            'lists' => $lists,
+        );
+        
+        // Execute the api call
+        $result = $this->callApi('subscribe', $post_params);
+        
+        if (!empty($result->data->id)) {
+            $subscriberId = $result->data->id;
+            
+            return $subscriberId;
+        } else {
+            return false;
+        }
+    }
+    
+    /**
+     * Fetch subscriber by ID.
+     *
+     * @param int $subscriberID ID of the subscriber
+     *
+     * @return the subscriber
+     */
+    public function subscriberGet($subscriberId)
+    {
+        $post_params = array(
+            'id' => $subscriberId,
+        );
+        
+        // Execute the api call
+        $result = $this->callApi('subscriberGet', $post_params);
+        if (!empty($result->data->id)) {
+            $fetchedSubscriberId = $result->data->id;
+            $this->assertEquals($fetchedSubscriberId, $subscriberId);
+            
+            return $result->data;
+        } else {
+            return false;
+        }
+    }
+    
+    /**
+     * Get a subscriber by Foreign Key.
+     *
+     * Note the difference with subscriberFindByEmail which only returns the SubscriberID
+     * Both API calls return the subscriber
+     *
+     * @param string $foreignKey Foreign Key to search
+     *
+     * @return subscriber object if found false if not found
+     */
+    public function subscriberGetByForeignkey($foreignKey)
+    {
+        $post_params = array(
+            'foreignkey' => $foreignKey,
+        );
+        
+        $result = $this->callApi('subscriberGetByForeignkey', $post_params);
+        
+        if (!empty($result->data->id)) {
+            return $result->data;
+        } else {
+            return false;
+        }
+    }
+    
+    /**
+     * Get the total number of subscribers.
+     *
+     * @param none
+     *
+     * @return int total number of subscribers in the system
+     */
+    public function subscriberCount()
+    {
+        $post_params = array(
+        );
+        
+        $result = $this->callApi('subscribersCount', $post_params);
+    
+        return $result !== null ? $result->data->total : false;
+    }
+    
+    /**
+     * Add a subscriber to an existing list.
+     *
+     * @param int $listId       ID of the list
+     * @param int $subscriberId ID of the subscriber
+     *
+     * @return the lists this subscriber is member of
+     */
+    public function listSubscriberAdd($listId, $subscriberId)
+    {
+        // Set list and subscriber vars
+        $post_params = array(
+            'list_id' => $listId,
+            'subscriber_id' => $subscriberId,
+        );
+        
+        $result = $this->callApi('listSubscriberAdd', $post_params);
+    
+        return $result !== null ? $result->data : false;
+    }
+    
+    /**
+     * Add a subscriber
+     *
+     * @param int $listId       ID of the list
+     * @param int $subscriberId ID of the subscriber
+     *
+     * @return the lists this subscriber is member of
+     */
+    /**
+     * Add a subscriber
+     *
+     * @param $email
+     * @param $confirmed
+     * @param $password
+     * @return mixed
+     */
+    public function subscriberAdd($email, $confirmed, $password)
+    {
+        // Set subscriber vars
+        $post_params = array(
+            'email' => $email,
+            'confirmed' => $confirmed ? 1 : 0,
+            'password' => $password,
+            'disabled' => 0,
+            'htmlemail' => 1,
+            'subscribepage' => 0,
+            'foreignkey' => '',
+        );
+        
+        if (null !== $result = $this->callApi('subscriberAdd', $post_params)) {
+            return $result->data;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get the lists a subscriber is member of.
+     *
+     * @param int $subscriberId ID of the subscriber
+     *
+     * @return the lists this subcriber is member of
+     */
+    public function listsSubscriber($subscriberId)
+    {
+        $post_params = array(
+            'subscriber_id' => $subscriberId,
+        );
+        
+        $result = $this->callApi('listsSubscriber', $post_params);
+    
+        return $result !== null ? $result->data : false;
+    }
+    
+    /**
+     * Get subscribers to a given list
+     *
+     * @param int $listId the list id
+     * @return a lust of subscribers
+     */
+    public function listSubscribers($listId)
+    {
+        $post_params = array(
+            'list_id' => $listId,
+        );
+        
+        $result = $this->callApi('listSubscribers', $post_params);
+        
+        return $result !== null ? $result->data : false;
+    }
+    
+    /**
+     * Remove a Subscriber from a list.
+     *
+     * @param int $listId       ID of the list to remove
+     * @param int $subscriberId ID of the subscriber
+     *
+     * @return the lists this subcriber is member of
+     */
+    public function listSubscriberDelete($listId, $subscriberId)
+    {
+        // Set list and subscriber vars
+        $post_params = array(
+            'list_id' => $listId,
+            'subscriber_id' => $subscriberId,
+        );
+        
+        $result = $this->callApi('listSubscriberDelete', $post_params);
+    
+        return $result !== null ? $result->data : false;
+    }
+}
