@@ -31,10 +31,9 @@ class HookManager extends BaseHook
             PhpList::API_LOGIN_NAME => PhpList::getConfigValue(PhpList::API_LOGIN_NAME, ''),
             PhpList::API_PASSWORD => PhpList::getConfigValue(PhpList::API_PASSWORD, ''),
             PhpList::API_SECRET => PhpList::getConfigValue(PhpList::API_SECRET, ''),
-            PhpList::LIST_NAME => PhpList::getConfigValue(PhpList::LIST_NAME, ''),
-            PhpList::VRP_LIST_NAME => PhpList::getConfigValue(PhpList::VRP_LIST_NAME, ''),
+            PhpList::LIST_NAME => PhpList::getConfigValue(PhpList::LIST_NAME, '')
         ];
-        
+
         $event->add(
             $this->render('phplist/module-configuration.html', $vars)
         );

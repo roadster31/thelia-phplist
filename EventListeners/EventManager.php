@@ -27,7 +27,6 @@ use Thelia\Log\Tlog;
 use Thelia\Model\Lang;
 use Thelia\Model\Newsletter;
 use Thelia\Model\NewsletterQuery;
-use Vrp\Model\VrpQuery;
 
 class EventManager implements EventSubscriberInterface
 {
@@ -35,29 +34,29 @@ class EventManager implements EventSubscriberInterface
     {
         $this->doSubscribe($event->getEmail(), PhpList::getConfigValue(PhpList::LIST_NAME));
     }
-    
+
     public function unsubscribe(NewsletterEvent $event)
     {
         $this->doUnsubscribe($event->getEmail(), PhpList::getConfigValue(PhpList::LIST_NAME));
     }
-    
+
     public function bulkAdd()
     {
         $theliaSubscribers = NewsletterQuery::create()->select('email')->find()->toArray();
-        
+
         foreach ($theliaSubscribers as $subscriber) {
             $this->doSubscribe($subscriber, PhpList::getConfigValue(PhpList::LIST_NAME));
         }
     }
-    
-    
+
+
     protected function doSubscribe($email, $list)
     {
         $api = $this->createApiClient();
-    
+
         try {
             $subscriberId = $this->getSubscriberId($api, $email, true);
-        
+
             if ($api->listSubscriberAdd($list, $subscriberId)) {
                 Tlog::getInstance()->info(
                     sprintf(
@@ -80,14 +79,14 @@ class EventManager implements EventSubscriberInterface
             );
         }
     }
-    
+
     protected function doUnsubscribe($email, $list)
     {
         $api = $this->createApiClient();
-    
+
         try {
             $subscriberId = $this->getSubscriberId($api, $email, true);
-            
+
             if ($api->listSubscriberDelete($list, $subscriberId)) {
                 Tlog::getInstance()->info(
                     sprintf(
@@ -108,7 +107,7 @@ class EventManager implements EventSubscriberInterface
             );
         }
     }
-    
+
     /**
      * @param PhpListRESTApiClient $api
      * @param string $email
@@ -119,7 +118,7 @@ class EventManager implements EventSubscriberInterface
         if (false !== $subscriberId = $api->subscriberFindByEmail($email)) {
             return $subscriberId;
         } elseif ($createIfNotExists) {
-            if (false !== $subscriberId = $api->subscriberAdd($email, true, $email.time())) {
+            if (false !== $subscriberId = $api->subscriberAdd($email, true, $email . time())) {
                 return $subscriberId;
             } else {
                 throw new \Exception("Failed to create customer with email $email");
@@ -128,7 +127,7 @@ class EventManager implements EventSubscriberInterface
             throw new \Exception("Subscriber was not found in phpList");
         }
     }
-    
+
     /**
      * @return PhpListRESTApiClient
      */
@@ -143,14 +142,14 @@ class EventManager implements EventSubscriberInterface
                 )
             );
         }
-        
+
         $api = new PhpListRESTApiClient(
             PhpList::getConfigValue(PhpList::REST_URL),
             PhpList::getConfigValue(PhpList::API_LOGIN_NAME),
             PhpList::getConfigValue(PhpList::API_PASSWORD),
             PhpList::getConfigValue(PhpList::API_SECRET)
         );
-        
+
         if (false === $api->login()) {
             throw new TheliaProcessException(
                 Translator::getInstance()->trans(
@@ -160,114 +159,81 @@ class EventManager implements EventSubscriberInterface
                 )
             );
         }
-        
+
         return $api;
     }
-    
+
     public function resync()
     {
         $list = PhpList::getConfigValue(PhpList::LIST_NAME);
-        
+
         $api = $this->createApiClient();
-        
+
         if (false !== $subscribers = $api->listSubscribers($list)) {
-            
+
             $theliaSubscribers = NewsletterQuery::create()->select('email')->find()->toArray();
 
             $locale = Lang::getDefaultLanguage()->getLocale();
-    
+
             $phpListSubscribers = [];
-            
+
             // Add to Thelia the subscribers which are not in the Newsletter table
-            foreach($subscribers as $subscriber) {
+            foreach ($subscribers as $subscriber) {
                 if ($subscriber->confirmed) {
                     $phpListSubscribers[] = $subscriber->email;
-    
-                    if (! in_array($subscriber->email, $theliaSubscribers)) {
+
+                    if (!in_array($subscriber->email, $theliaSubscribers)) {
                         $newsletter = new Newsletter();
                         $newsletter
                             ->setEmail($subscriber->email)
                             ->setLocale($locale)
-                            ->save()
-                            ;
+                            ->save();
                     }
                 }
             }
-            
+
             // Remove from Thelia the subscribers which are not in phpList
-            foreach($theliaSubscribers as $theliaSubscriber) {
-                if (! in_array($theliaSubscriber, $phpListSubscribers)) {
+            foreach ($theliaSubscribers as $theliaSubscriber) {
+                if (!in_array($theliaSubscriber, $phpListSubscribers)) {
                     NewsletterQuery::create()->findOneByEmail($theliaSubscriber)->delete();
                 }
             }
-            
+
             // Add to phpList the missing Thelia subscribers, ignoring unsubscribed emails
             $theliaSubscribers = NewsletterQuery::create()
                 ->filterByUnsubscribed(false)
                 ->select('email')
                 ->find()
                 ->toArray();
-    
-            foreach($theliaSubscribers as $theliaSubscriber) {
-                if (! in_array($theliaSubscriber, $phpListSubscribers)) {
+
+            foreach ($theliaSubscribers as $theliaSubscriber) {
+                if (!in_array($theliaSubscriber, $phpListSubscribers)) {
                     $this->doSubscribe($theliaSubscriber, $list);
                 }
             }
-    
+
             // Remove from phpList unsubscribed Thelia emails
             $theliaSubscribers = NewsletterQuery::create()
                 ->filterByUnsubscribed(true)
                 ->select('email')
                 ->find()
                 ->toArray();
-    
-            foreach($theliaSubscribers as $theliaSubscriber) {
+
+            foreach ($theliaSubscribers as $theliaSubscriber) {
                 if (in_array($theliaSubscriber, $phpListSubscribers)) {
                     $this->doUnsubscribe($theliaSubscriber, $list);
                 }
             }
         }
-        
-        // resync des VRP aussi.
-        $this->resyncVrp();
     }
-    
-    protected function resyncVrp()
-    {
-        $list = PhpList::getConfigValue(PhpList::VRP_LIST_NAME);
-    
-        $api = $this->createApiClient();
-        
-        if (false !== $subscribers = $api->listSubscribers($list)) {
-            
-            $vrpSubscribers = VrpQuery::create()->select('email')->find()->toArray();
-            
-            $phpListSubscribers = [];
-            // Supprimer les VRPs qui ne sont plus dans Thelia
-            foreach($subscribers as $subscriber) {
-                if ($subscriber->confirmed) {
-                    $phpListSubscribers[] = $subscriber->email;
-                    if (! in_array($subscriber->email, $vrpSubscribers)) {
-                        $this->doUnsubscribe($subscriber->email, $list);
-                    }
-                }
-            }
-            
-            foreach($vrpSubscribers as $vrpSubscriber) {
-                if (! in_array($vrpSubscriber, $phpListSubscribers)) {
-                    $this->doSubscribe($vrpSubscriber, $list);
-                }
-            }
-        }
-    }
-    
+
     public static function getSubscribedEvents()
     {
         return array(
-            TheliaEvents::NEWSLETTER_SUBSCRIBE => [ "subscribe", 130 ],
-            TheliaEvents::NEWSLETTER_UNSUBSCRIBE => [ "unsubscribe", 130 ],
-            PhpList::RESYNC_EVENT => [ 'resync', 128 ],
-            PhpList::BULK_ADD => [ 'bulkAdd', 128 ]
+            TheliaEvents::NEWSLETTER_SUBSCRIBE => ["subscribe", 130],
+            TheliaEvents::NEWSLETTER_UNSUBSCRIBE => ["unsubscribe", 130],
+            PhpList::RESYNC_EVENT => ['resync', 128],
+            PhpList::BULK_ADD => ['bulkAdd', 128]
         );
     }
 }

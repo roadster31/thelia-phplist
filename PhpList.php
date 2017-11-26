@@ -24,8 +24,7 @@ class PhpList extends BaseModule
     const API_PASSWORD = 'api_password';
     const API_SECRET = 'api_secret';
     const LIST_NAME = 'list_name';
-    const VRP_LIST_NAME = 'vrp_list_name';
-    
+
     const RESYNC_EVENT = 'PhpList.resync';
     const BULK_ADD = 'PhpList.bulk_add';
 }

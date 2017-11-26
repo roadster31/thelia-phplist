@@ -62,13 +62,13 @@ class ConfigurationForm extends BaseForm
             ))
             ->add(PhpList::API_SECRET, "text", array(
                 "label" => $this->translator->trans("API secret key", [], PhpList::DOMAIN_NAME),
-                "required" => false,
+                "required" => true,
                 "label_attr" => [
                     'help' => $this->translator->trans("This is the secret code defined in the PhpList settings. Enter this code only if \"Require the secret code for Rest API calls\" is set to \"Yes\".", [], PhpList::DOMAIN_NAME),
                 ]
             ))
         ;
-        
+
         if (null !== PhpList::getConfigValue(PhpList::REST_URL)) {
             $this->formBuilder->add(
                 PhpList::LIST_NAME,
@@ -82,27 +82,15 @@ class ConfigurationForm extends BaseForm
                     ]
                 )
             );
-            $this->formBuilder->add(
-                PhpList::VRP_LIST_NAME,
-                "choice",
-                array(
-                    "label" => $this->translator->trans("Liste des VRPs", [], PhpList::DOMAIN_NAME),
-                    "required" => true,
-                    "choices" => $this->getListNames(),
-                    "label_attr" => [
-                        'help' => $this->translator->trans("Le nom de la liste de diffusion des VRPs", [], PhpList::DOMAIN_NAME),
-                    ]
-                )
-            );
         }
     }
-    
+
     public function checkApiLogin($value, ExecutionContextInterface $context)
     {
         $data = $context->getRoot()->getData();
-    
+
         $message = false;
-        
+
         try {
             $api = new PhpListRESTApiClient(
                 $data[PhpList::REST_URL],
@@ -110,7 +98,7 @@ class ConfigurationForm extends BaseForm
                 $data[PhpList::API_PASSWORD],
                 $data[PhpList::API_SECRET]
             );
-    
+
             if (! $api->login()) {
                 $message = $this->translator->trans(
                     "Failed to login to the phpList REST API. Please check credentials.",
@@ -125,12 +113,12 @@ class ConfigurationForm extends BaseForm
                 PhpList::DOMAIN_NAME
             );
         }
-        
+
         if ($message) {
             $context->addViolation($message);
         }
     }
-    
+
     private function getListNames()
     {
         $api = new PhpListRESTApiClient(
@@ -139,13 +127,13 @@ class ConfigurationForm extends BaseForm
             PhpList::getConfigValue(PhpList::API_PASSWORD),
             PhpList::getConfigValue(PhpList::API_SECRET)
         );
-        
+
         $result = ['(none)' => $this->translator->trans("No list found !", [], PhpList::DOMAIN_NAME)];
-        
+
         if ($api->login()) {
             if (false !== $listsData = $api->listsGet()) {
                 $result = [];
-                
+
                 foreach ($listsData as $item) {
                     $result[$item->id] = $item->name;
                 }
@@ -157,7 +145,7 @@ class ConfigurationForm extends BaseForm
                 PhpList::DOMAIN_NAME
             ));
         }
-        
+
         return $result;
     }
 }
